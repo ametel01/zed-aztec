@@ -1,0 +1,15 @@
+id = "aztec"
+name = "Aztec"
+description = "Aztec-nr smart contract support for Zed."
+version = "0.0.1"
+schema_version = 1
+authors = ["Your Name <your@email.com>"]
+repository = "https://github.com/your-username/zed-aztec"
+
+[language_servers.nargo]
+name = "Nargo LSP"
+languages = ["Aztec"]
+
+[grammars.noir]
+repository = "https://github.com/hhamud/tree-sitter-noir"
+commit = "4cc223f677d72db319f1c8331b65a9564805c7bf"
