@@ -2,6 +2,10 @@
 name = "zed-aztec"
 version = "0.0.1"
 edition = "2021"
+authors = ["Alex Metelli <alex@metelli.dev>"]
+license = "MIT"
+repository = "https://github.com/ametel01/zed-aztec"
+description = "Aztec-nr smart contract support for Zed"
 
 [lib]
 crate-type = ["cdylib"]
