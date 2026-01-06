@@ -42,7 +42,7 @@ impl AztecExtension {
 
         // 2. Check cached path
         if let Some(path) = &self.cached_binary_path {
-            if fs::metadata(path).map_or(false, |stat| stat.is_file()) {
+            if fs::metadata(path).is_ok_and(|stat| stat.is_file()) {
                 // If cached path is aztec CLI, wrap in shell to clean up stale container
                 if path.ends_with("/aztec") || path.ends_with("\\aztec") {
                     return Ok(LspBinary {
@@ -71,7 +71,7 @@ impl AztecExtension {
             if let Ok(home) = std::env::var(var) {
                 // Prefer aztec CLI over nargo for Aztec projects
                 let aztec_cli_path = format!("{}/.aztec/bin/aztec", home);
-                if fs::metadata(&aztec_cli_path).map_or(false, |stat| stat.is_file()) {
+                if fs::metadata(&aztec_cli_path).is_ok_and(|stat| stat.is_file()) {
                     self.cached_binary_path = Some(aztec_cli_path.clone());
                     // Wrap in shell to clean up stale Docker container before starting LSP
                     return Ok(LspBinary {
@@ -102,7 +102,7 @@ impl AztecExtension {
         for var in home_vars {
             if let Ok(home) = std::env::var(var) {
                 let nargo_path = format!("{}/.aztec/bin/nargo", home);
-                if fs::metadata(&nargo_path).map_or(false, |stat| stat.is_file()) {
+                if fs::metadata(&nargo_path).is_ok_and(|stat| stat.is_file()) {
                     self.cached_binary_path = Some(nargo_path.clone());
                     return Ok(LspBinary {
                         path: nargo_path,
@@ -114,8 +114,7 @@ impl AztecExtension {
         }
 
         // 6. Error with installation instructions
-        Err(
-            "Aztec CLI not found. Install Aztec tooling:\n\
+        Err("Aztec CLI not found. Install Aztec tooling:\n\
             \n\
             bash -i <(curl -s https://install.aztec.network)\n\
             aztec-up latest\n\
@@ -125,8 +124,7 @@ impl AztecExtension {
             For pure Noir (non-Aztec) projects, install nargo:\n\
             curl -L https://raw.githubusercontent.com/noir-lang/noirup/main/install | bash\n\
             noirup"
-                .into(),
-        )
+            .into())
     }
 }
 
