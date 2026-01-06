@@ -7,3 +7,5 @@
 - Extension configuration with Nargo LSP integration
 - tree-sitter-noir grammar configuration
 - Aztec language definition structure
+- Rust crate configuration with zed_extension_api dependency
+- Aztec language configuration with file associations and editor settings
