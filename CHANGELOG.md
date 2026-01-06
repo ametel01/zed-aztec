@@ -13,3 +13,7 @@
 - Syntax highlighting queries for Noir/Aztec constructs
 - MIT license
 - Project documentation with installation and configuration guide
+
+### Fixed
+- Documentation now correctly states that auto-format on save is not supported (nargo fmt lacks stdin mode)
+- Added troubleshooting for nargo cache permission errors (Docker creates ~/nargo as root)

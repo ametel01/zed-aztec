@@ -10,7 +10,7 @@ Zed editor extension for [Aztec-nr](https://docs.aztec.network/) smart contract 
   - Go to definition
   - Hover documentation
   - Diagnostics
-- **Auto-formatting** support using `aztec fmt` (see Configuration section)
+- **Manual formatting** via `aztec fmt` command (see Configuration section)
 
 ## Prerequisites
 
@@ -49,66 +49,32 @@ aztec lsp          # Test LSP (Ctrl+C to exit)
 
 ## Configuration
 
-### Enable Auto-Format on Save (Recommended)
+### LSP Binary Selection
 
-Add to your Zed settings (`Cmd+,` on macOS, `Ctrl+,` on Linux → Open Settings JSON):
+The extension checks for LSP binaries in this order:
 
-```json
-{
-  "languages": {
-    "Aztec": {
-      "formatter": {
-        "external": {
-          "command": "aztec",
-          "arguments": ["fmt", "--stdin-filepath", "{buffer_path}"]
-        }
-      },
-      "format_on_save": "on"
-    }
-  }
-}
-```
-
-This uses `aztec fmt` which runs `nargo fmt` in Docker for consistent formatting.
-
-### Disable Auto-Format on Save
-
-```json
-{
-  "languages": {
-    "Aztec": {
-      "format_on_save": "off"
-    }
-  }
-}
-```
-
-### Use nargo Instead of aztec (for pure Noir)
-
-If you prefer `nargo lsp` directly (without Docker), ensure `nargo` is in your PATH before `aztec`. The extension checks in this order:
-
-1. `aztec` in PATH → uses `aztec lsp`
+1. `aztec` in PATH → uses `aztec lsp` (runs nargo in Docker)
 2. `~/.aztec/bin/aztec`
-3. `nargo` in PATH → uses `nargo lsp`
+3. `nargo` in PATH → uses `nargo lsp` (direct, for pure Noir)
 4. `~/.aztec/bin/nargo`
 
-For formatting with nargo directly:
+For pure Noir projects without Docker, ensure `nargo` is in your PATH before `aztec`.
 
-```json
-{
-  "languages": {
-    "Aztec": {
-      "formatter": {
-        "external": {
-          "command": "nargo",
-          "arguments": ["fmt", "--stdin-filepath", "{buffer_path}"]
-        }
-      },
-      "format_on_save": "on"
-    }
-  }
-}
+### Formatting
+
+**Note:** `nargo fmt` only supports in-place formatting of workspace files and does not accept stdin input. Therefore, **Zed's auto-format on save is not supported** for Noir/Aztec files.
+
+To format your code, run manually in your project directory:
+
+```bash
+# For Aztec projects (runs nargo fmt in Docker)
+aztec fmt
+
+# For pure Noir projects
+nargo fmt
 ```
+
+**Tip:** You can bind a keyboard shortcut in Zed to run `aztec fmt` via a terminal task.
 
 ## Troubleshooting
 
@@ -127,12 +93,12 @@ bash -i <(curl -s https://install.aztec.network)
 aztec-up latest
 ```
 
-### Formatting Not Working
+### "Permission denied" on fmt or compile
 
-Ensure Docker is running and test manually:
+If you see `Failed to lock git dependencies cache: Permission denied`, the `~/nargo` cache directory was created by Docker as root. Fix with:
 
 ```bash
-aztec fmt
+sudo chown -R $USER:$USER ~/nargo
 ```
 
 ## Note on File Association
