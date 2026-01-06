@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+- Auto-remove stale `aztec-nargo-lsp` Docker container on LSP startup
+
 ## [0.0.1] - 2026-01-06
 
 Initial release of Aztec extension for Zed editor.

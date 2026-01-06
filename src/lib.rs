@@ -24,10 +24,18 @@ impl AztecExtension {
     ) -> Result<LspBinary> {
         // 1. Check worktree PATH for aztec CLI (highest priority for Aztec projects)
         // aztec lsp runs nargo lsp inside a Docker container
-        if let Some(path) = worktree.which("aztec") {
+        if let Some(aztec_path) = worktree.which("aztec") {
+            // Wrap in shell to clean up stale Docker container before starting LSP
+            // The container name "aztec-nargo-lsp" is hardcoded in aztec CLI
             return Ok(LspBinary {
-                path,
-                args: vec!["lsp".to_string()],
+                path: "/bin/sh".to_string(),
+                args: vec![
+                    "-c".to_string(),
+                    format!(
+                        "docker rm -f aztec-nargo-lsp 2>/dev/null; exec {} lsp",
+                        aztec_path
+                    ),
+                ],
                 environment: Some(worktree.shell_env()),
             });
         }
@@ -35,6 +43,20 @@ impl AztecExtension {
         // 2. Check cached path
         if let Some(path) = &self.cached_binary_path {
             if fs::metadata(path).map_or(false, |stat| stat.is_file()) {
+                // If cached path is aztec CLI, wrap in shell to clean up stale container
+                if path.ends_with("/aztec") || path.ends_with("\\aztec") {
+                    return Ok(LspBinary {
+                        path: "/bin/sh".to_string(),
+                        args: vec![
+                            "-c".to_string(),
+                            format!(
+                                "docker rm -f aztec-nargo-lsp 2>/dev/null; exec {} lsp",
+                                path
+                            ),
+                        ],
+                        environment: None,
+                    });
+                }
                 return Ok(LspBinary {
                     path: path.clone(),
                     args: vec!["lsp".to_string()],
@@ -51,9 +73,16 @@ impl AztecExtension {
                 let aztec_cli_path = format!("{}/.aztec/bin/aztec", home);
                 if fs::metadata(&aztec_cli_path).map_or(false, |stat| stat.is_file()) {
                     self.cached_binary_path = Some(aztec_cli_path.clone());
+                    // Wrap in shell to clean up stale Docker container before starting LSP
                     return Ok(LspBinary {
-                        path: aztec_cli_path,
-                        args: vec!["lsp".to_string()],
+                        path: "/bin/sh".to_string(),
+                        args: vec![
+                            "-c".to_string(),
+                            format!(
+                                "docker rm -f aztec-nargo-lsp 2>/dev/null; exec {} lsp",
+                                aztec_cli_path
+                            ),
+                        ],
                         environment: None,
                     });
                 }
