@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.1.0] - 2026-01-08
+
 ### Added
 - User-configurable LSP binary path via Zed settings
 - Auto-detect Aztec vs pure Noir projects via Nargo.toml
@@ -38,5 +40,6 @@ Initial release of Aztec extension for Zed editor.
 - Format on save not supported (`nargo fmt` only supports in-place file formatting)
 - Requires Docker for `aztec lsp` (runs nargo in container with Aztec macro support)
 
-[Unreleased]: https://github.com/ametel01/zed-aztec/compare/v0.0.1...HEAD
+[Unreleased]: https://github.com/ametel01/zed-aztec/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/ametel01/zed-aztec/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/ametel01/zed-aztec/releases/tag/v0.0.1
