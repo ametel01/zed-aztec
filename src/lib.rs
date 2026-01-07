@@ -1,7 +1,7 @@
 use std::fs;
 use zed::lsp::{Completion, CompletionKind, Symbol, SymbolKind};
 use zed::settings::LspSettings;
-use zed::{CodeLabel, CodeLabelSpan, LanguageServerId};
+use zed::{CodeLabel, CodeLabelSpan, LanguageServerId, LanguageServerInstallationStatus};
 use zed_extension_api::{self as zed, serde_json, Result};
 
 struct AztecExtension {
@@ -101,6 +101,12 @@ impl AztecExtension {
         language_server_id: &LanguageServerId,
         worktree: &zed::Worktree,
     ) -> Result<LspBinary> {
+        // Show status while searching for LSP binary
+        zed::set_language_server_installation_status(
+            language_server_id,
+            &LanguageServerInstallationStatus::CheckingForUpdate,
+        );
+
         let shell_env = worktree.shell_env();
 
         // 0. Check user settings first (highest priority)
@@ -114,6 +120,10 @@ impl AztecExtension {
                         .env
                         .map(|e| e.into_iter().collect())
                         .unwrap_or_else(|| shell_env.clone());
+                    zed::set_language_server_installation_status(
+                        language_server_id,
+                        &LanguageServerInstallationStatus::None,
+                    );
                     return Ok(LspBinary {
                         path,
                         args,
@@ -134,22 +144,48 @@ impl AztecExtension {
         if is_aztec {
             // Aztec project: prefer aztec CLI, fall back to nargo
             if let Some(path) = self.find_aztec(worktree, home.as_ref()) {
+                zed::set_language_server_installation_status(
+                    language_server_id,
+                    &LanguageServerInstallationStatus::None,
+                );
                 return Ok(Self::aztec_binary(path, shell_env));
             }
             if let Some(path) = self.find_nargo(worktree, home.as_ref()) {
+                zed::set_language_server_installation_status(
+                    language_server_id,
+                    &LanguageServerInstallationStatus::None,
+                );
                 return Ok(Self::nargo_binary(path, shell_env));
             }
         } else {
             // Pure Noir project: prefer nargo (faster), fall back to aztec
             if let Some(path) = self.find_nargo(worktree, home.as_ref()) {
+                zed::set_language_server_installation_status(
+                    language_server_id,
+                    &LanguageServerInstallationStatus::None,
+                );
                 return Ok(Self::nargo_binary(path, shell_env));
             }
             if let Some(path) = self.find_aztec(worktree, home.as_ref()) {
+                zed::set_language_server_installation_status(
+                    language_server_id,
+                    &LanguageServerInstallationStatus::None,
+                );
                 return Ok(Self::aztec_binary(path, shell_env));
             }
         }
 
         // 2. Error with installation instructions
+        let error_msg = if is_aztec {
+            "Aztec CLI not found. Install with: bash -i <(curl -s https://install.aztec.network)"
+        } else {
+            "nargo not found. Install with: noirup"
+        };
+        zed::set_language_server_installation_status(
+            language_server_id,
+            &LanguageServerInstallationStatus::Failed(error_msg.to_string()),
+        );
+
         Err(if is_aztec {
             "Aztec CLI not found. Install Aztec tooling:\n\
             \n\

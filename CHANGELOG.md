@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Runtime LSP configuration via workspace settings (code lens, parsing)
 - Syntax-highlighted completions with kind-specific formatting (fn, struct, enum, etc.)
 - Syntax-highlighted symbols in symbol picker and outline
+- Visual status indicator during LSP binary search with failure messages
 
 ### Changed
 - Prefer native nargo for pure Noir projects (faster startup, no Docker)

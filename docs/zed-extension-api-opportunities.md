@@ -15,6 +15,7 @@ Analysis of `zed_extension_api` v0.7.0 APIs that could improve the zed-aztec ext
 | `Extension::language_server_workspace_configuration()` | Runtime LSP settings (code lens, parsing) |
 | `Extension::label_for_completion()` | Syntax-highlighted completions |
 | `Extension::label_for_symbol()` | Syntax-highlighted symbols |
+| `set_language_server_installation_status()` | Show binary search progress in UI |
 
 ## Available APIs for Improvement
 
@@ -117,29 +118,55 @@ Formatting by symbol kind:
 
 ---
 
-### Low Priority
+### Not Implementable (API Limitations)
 
-#### 6. KeyValueStore - Persistent storage
+#### 6. ❌ KeyValueStore - Persistent storage (NOT AVAILABLE)
 
-Cache binary paths or user preferences across sessions.
+**Reason**: The KeyValueStore API is too limited for general extension use:
+1. **Write-only**: Only `insert(key, value)` exists — no `get()` method to retrieve values
+2. **Context-specific**: Only available as a parameter to `index_docs()` for documentation indexing
+3. **Not extensible**: Cannot obtain a KeyValueStore instance for general caching
 
 ```rust
-// Note: Would need to access KeyValueStore (API details unclear)
-// Could cache verified binary paths to speed up startup
+// WIT interface definition (from zed extension_api):
+resource key-value-store {
+    insert: func(key: string, value: string) -> result<_, string>;
+    // No get() method!
+}
+
+// Only available here:
+fn index_docs(&self, provider: String, package: String, database: &KeyValueStore) -> Result<()>
 ```
+
+**Alternative**: The `cached_binary_path` field in `AztecExtension` provides in-memory caching per session, but cannot persist across Zed restarts.
 
 ---
 
-#### 7. set_language_server_installation_status()
+#### 7. ✅ set_language_server_installation_status() (IMPLEMENTED)
 
 Show installation progress in Zed's UI when the extension is setting up.
 
 ```rust
+// Show "checking" status while searching for binaries
 zed::set_language_server_installation_status(
     language_server_id,
-    &zed::LanguageServerInstallationStatus::CheckingForUpdate,
+    &LanguageServerInstallationStatus::CheckingForUpdate,
+);
+
+// Clear status when binary found
+zed::set_language_server_installation_status(
+    language_server_id,
+    &LanguageServerInstallationStatus::None,
+);
+
+// Show failure with installation instructions
+zed::set_language_server_installation_status(
+    language_server_id,
+    &LanguageServerInstallationStatus::Failed("nargo not found. Install with: noirup".to_string()),
 );
 ```
+
+**Benefit**: Users see visual feedback in Zed's UI while the extension searches for LSP binaries, and clear error messages if installation is missing.
 
 ---
 
