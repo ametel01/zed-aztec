@@ -7,8 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- Use worktree shell environment API for environment variable lookups
+
 ### Fixed
 - Auto-remove stale `aztec-nargo-lsp` Docker container on LSP startup
+- Disable LSP parsing cache to fix stale diagnostics after file changes
+- Pass shell environment to all LSP binary paths for proper Docker/tool configuration
 
 ## [0.0.1] - 2026-01-06
 

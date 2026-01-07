@@ -1,6 +1,6 @@
 use std::fs;
 use zed::LanguageServerId;
-use zed_extension_api::{self as zed, Result};
+use zed_extension_api::{self as zed, Result, serde_json};
 
 struct AztecExtension {
     cached_binary_path: Option<String>,
@@ -16,12 +16,21 @@ struct LspBinary {
     environment: Option<Vec<(String, String)>>,
 }
 
+/// Look up an environment variable by name in a list of (key, value) pairs.
+fn get_env_var(env: &[(String, String)], name: &str) -> Option<String> {
+    env.iter()
+        .find(|(k, _)| k == name)
+        .map(|(_, v)| v.clone())
+}
+
 impl AztecExtension {
     fn language_server_binary(
         &mut self,
         _language_server_id: &LanguageServerId,
         worktree: &zed::Worktree,
     ) -> Result<LspBinary> {
+        let shell_env = worktree.shell_env();
+
         // 1. Check worktree PATH for aztec CLI (highest priority for Aztec projects)
         // aztec lsp runs nargo lsp inside a Docker container
         if let Some(aztec_path) = worktree.which("aztec") {
@@ -36,7 +45,7 @@ impl AztecExtension {
                         aztec_path
                     ),
                 ],
-                environment: Some(worktree.shell_env()),
+                environment: Some(shell_env),
             });
         }
 
@@ -54,38 +63,38 @@ impl AztecExtension {
                                 path
                             ),
                         ],
-                        environment: None,
+                        environment: Some(shell_env),
                     });
                 }
                 return Ok(LspBinary {
                     path: path.clone(),
                     args: vec!["lsp".to_string()],
-                    environment: None,
+                    environment: Some(shell_env),
                 });
             }
         }
 
         // 3. Check Aztec installation path (~/.aztec/bin/aztec)
-        let home_vars = ["HOME", "USERPROFILE"];
-        for var in home_vars {
-            if let Ok(home) = std::env::var(var) {
-                // Prefer aztec CLI over nargo for Aztec projects
-                let aztec_cli_path = format!("{}/.aztec/bin/aztec", home);
-                if fs::metadata(&aztec_cli_path).is_ok_and(|stat| stat.is_file()) {
-                    self.cached_binary_path = Some(aztec_cli_path.clone());
-                    // Wrap in shell to clean up stale Docker container before starting LSP
-                    return Ok(LspBinary {
-                        path: "/bin/sh".to_string(),
-                        args: vec![
-                            "-c".to_string(),
-                            format!(
-                                "docker rm -f aztec-nargo-lsp 2>/dev/null; exec {} lsp",
-                                aztec_cli_path
-                            ),
-                        ],
-                        environment: None,
-                    });
-                }
+        let home = get_env_var(&shell_env, "HOME")
+            .or_else(|| get_env_var(&shell_env, "USERPROFILE"));
+
+        if let Some(home) = &home {
+            // Prefer aztec CLI over nargo for Aztec projects
+            let aztec_cli_path = format!("{}/.aztec/bin/aztec", home);
+            if fs::metadata(&aztec_cli_path).is_ok_and(|stat| stat.is_file()) {
+                self.cached_binary_path = Some(aztec_cli_path.clone());
+                // Wrap in shell to clean up stale Docker container before starting LSP
+                return Ok(LspBinary {
+                    path: "/bin/sh".to_string(),
+                    args: vec![
+                        "-c".to_string(),
+                        format!(
+                            "docker rm -f aztec-nargo-lsp 2>/dev/null; exec {} lsp",
+                            aztec_cli_path
+                        ),
+                    ],
+                    environment: Some(shell_env),
+                });
             }
         }
 
@@ -94,22 +103,20 @@ impl AztecExtension {
             return Ok(LspBinary {
                 path,
                 args: vec!["lsp".to_string()],
-                environment: Some(worktree.shell_env()),
+                environment: Some(shell_env),
             });
         }
 
         // 5. Check ~/.aztec/bin/nargo as last resort
-        for var in home_vars {
-            if let Ok(home) = std::env::var(var) {
-                let nargo_path = format!("{}/.aztec/bin/nargo", home);
-                if fs::metadata(&nargo_path).is_ok_and(|stat| stat.is_file()) {
-                    self.cached_binary_path = Some(nargo_path.clone());
-                    return Ok(LspBinary {
-                        path: nargo_path,
-                        args: vec!["lsp".to_string()],
-                        environment: None,
-                    });
-                }
+        if let Some(home) = &home {
+            let nargo_path = format!("{}/.aztec/bin/nargo", home);
+            if fs::metadata(&nargo_path).is_ok_and(|stat| stat.is_file()) {
+                self.cached_binary_path = Some(nargo_path.clone());
+                return Ok(LspBinary {
+                    path: nargo_path,
+                    args: vec!["lsp".to_string()],
+                    environment: Some(shell_env),
+                });
             }
         }
 
@@ -146,6 +153,19 @@ impl zed::Extension for AztecExtension {
             args: binary.args,
             env: binary.environment.unwrap_or_default(),
         })
+    }
+
+    fn language_server_initialization_options(
+        &mut self,
+        _language_server_id: &LanguageServerId,
+        _worktree: &zed::Worktree,
+    ) -> Result<Option<serde_json::Value>> {
+        // Disable parsing cache to ensure diagnostics refresh on every file change.
+        // The nargo LSP caches parsed files by content hash, which can sometimes
+        // cause stale diagnostics when files are modified.
+        Ok(Some(serde_json::json!({
+            "enableParsingCache": false
+        })))
     }
 }
 
