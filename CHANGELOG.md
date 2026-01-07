@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- User-configurable LSP binary path via Zed settings
+- Auto-detect Aztec vs pure Noir projects via Nargo.toml
+- Runtime LSP configuration via workspace settings (code lens, parsing)
+- Syntax-highlighted completions with kind-specific formatting (fn, struct, enum, etc.)
+- Syntax-highlighted symbols in symbol picker and outline
+
 ### Changed
+- Prefer native nargo for pure Noir projects (faster startup, no Docker)
 - Use worktree shell environment API for environment variable lookups
 
 ### Fixed
