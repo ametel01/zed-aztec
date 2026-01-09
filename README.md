@@ -101,6 +101,26 @@ If you see `Failed to lock git dependencies cache: Permission denied`, the `~/na
 sudo chown -R $USER:$USER ~/nargo
 ```
 
+### "Failed to compile grammar 'noir'" on installation
+
+If you see this error when installing the extension, it's likely due to a corrupted wasi-sdk (the compiler Zed uses for tree-sitter grammars). This can happen if a previous installation was interrupted.
+
+**Check the logs:**
+```bash
+tail -f ~/.local/share/zed/logs/Zed.log
+```
+
+If you see `Not a directory (os error 20)` related to wasi-sdk, fix it with:
+
+```bash
+# Remove corrupted wasi-sdk
+rm -rf ~/.local/share/zed/extensions/build/wasi-sdk*
+
+# Reinstall the extension (Zed will re-download wasi-sdk)
+```
+
+Then try installing the extension again in Zed.
+
 ## Note on File Association
 
 Both `zed-noir` and `zed-aztec` extensions handle `.nr` files. If you have both installed:
