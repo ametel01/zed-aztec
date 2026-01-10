@@ -7,8 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-01-10
+
+### Added
+- Rich syntax highlighting with Rust-inspired patterns
+  - Method calls distinguished from functions (`@function.method`)
+  - Macro attributes highlighted (`#[...]` syntax)
+  - Struct fields and properties (`@property`)
+  - Generic type parameters (`@type.parameter`)
+  - Complete operator coverage (arithmetic, logical, bitwise, comparison, assignment)
+  - Module paths and namespaces (`crate::`, `super::`)
+  - ALL_CAPS identifier convention for constants
+- Troubleshooting guide for grammar compilation failures due to corrupted wasi-sdk
+
 ### Changed
-- Add troubleshooting guide for grammar compilation failures due to corrupted wasi-sdk
+- Enhance highlights.scm from 79 to 235 lines with semantic highlighting
+- Reorganize syntax highlighting rules with clear category sections
+
+### Fixed
+- Fix syntax highlighting query errors for named nodes (`comptime`, `viewer`, `mutable`)
 
 ## [0.1.0] - 2026-01-08
 
@@ -43,6 +60,7 @@ Initial release of Aztec extension for Zed editor.
 - Format on save not supported (`nargo fmt` only supports in-place file formatting)
 - Requires Docker for `aztec lsp` (runs nargo in container with Aztec macro support)
 
-[Unreleased]: https://github.com/ametel01/zed-aztec/compare/v0.1.0...HEAD
+[Unreleased]: https://github.com/ametel01/zed-aztec/compare/v0.2.0...HEAD
+[0.2.0]: https://github.com/ametel01/zed-aztec/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ametel01/zed-aztec/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/ametel01/zed-aztec/releases/tag/v0.0.1
