@@ -1,4 +1,3 @@
-use std::fs;
 use zed::lsp::{Completion, CompletionKind, Symbol, SymbolKind};
 use zed::settings::LspSettings;
 use zed::{CodeLabel, CodeLabelSpan, LanguageServerId, LanguageServerInstallationStatus};
@@ -36,19 +35,47 @@ fn is_aztec_project(worktree: &zed::Worktree) -> bool {
 }
 
 impl AztecExtension {
+    /// Ensure PATH includes common binary locations (docker, etc may not be in Zed's default PATH).
+    fn ensure_path(env: Vec<(String, String)>) -> Vec<(String, String)> {
+        let mut env = env;
+        let extra_paths = "/usr/local/bin:/usr/bin:/bin";
+
+        if let Some(idx) = env.iter().position(|(k, _)| k == "PATH") {
+            let current = &env[idx].1;
+            if !current.contains("/usr/bin") {
+                env[idx].1 = format!("{}:{}", current, extra_paths);
+            }
+        } else {
+            // No PATH at all, set a reasonable default
+            env.push(("PATH".to_string(), extra_paths.to_string()));
+        }
+        env
+    }
+
+    /// Ensure HOME is set in the environment. The aztec CLI requires HOME for Docker volume mounts
+    /// and working directory validation.
+    fn ensure_home(env: Vec<(String, String)>, home: Option<&String>) -> Vec<(String, String)> {
+        let mut env = env;
+
+        // Check if HOME is already set
+        if env.iter().any(|(k, _)| k == "HOME") {
+            return env;
+        }
+
+        // Add HOME from the resolved home value
+        if let Some(home) = home {
+            env.push(("HOME".to_string(), home.clone()));
+        }
+        env
+    }
+
     /// Create an LspBinary for the aztec CLI (runs nargo in Docker with Aztec macro support).
-    fn aztec_binary(path: String, env: Vec<(String, String)>) -> LspBinary {
-        // Wrap in shell to clean up stale Docker container before starting LSP
-        // The container name "aztec-nargo-lsp" is hardcoded in aztec CLI
+    fn aztec_binary(path: String, env: Vec<(String, String)>, home: Option<&String>) -> LspBinary {
+        let env = Self::ensure_path(env);
+        let env = Self::ensure_home(env, home);
         LspBinary {
-            path: "/bin/sh".to_string(),
-            args: vec![
-                "-c".to_string(),
-                format!(
-                    "docker rm -f aztec-nargo-lsp 2>/dev/null; exec {} lsp",
-                    path
-                ),
-            ],
+            path,
+            args: vec!["lsp".to_string()],
             environment: Some(env),
         }
     }
@@ -65,34 +92,44 @@ impl AztecExtension {
     /// Try to find aztec CLI in PATH or ~/.aztec/bin.
     fn find_aztec(&mut self, worktree: &zed::Worktree, home: Option<&String>) -> Option<String> {
         // Check PATH first
+        eprintln!("[zed-aztec] find_aztec: checking PATH via worktree.which()");
         if let Some(path) = worktree.which("aztec") {
+            eprintln!("[zed-aztec] find_aztec: found in PATH at {}", path);
             return Some(path);
         }
-        // Check ~/.aztec/bin/aztec
+        eprintln!("[zed-aztec] find_aztec: not in PATH");
+        // Return ~/.aztec/bin/aztec path if HOME is set
+        // Note: WASM extensions can't use fs::metadata, so we return the path
+        // and let Zed handle errors if the binary doesn't exist
         if let Some(home) = home {
             let aztec_path = format!("{}/.aztec/bin/aztec", home);
-            if fs::metadata(&aztec_path).is_ok_and(|stat| stat.is_file()) {
-                self.cached_binary_path = Some(aztec_path.clone());
-                return Some(aztec_path);
-            }
+            eprintln!("[zed-aztec] find_aztec: returning default path {}", aztec_path);
+            self.cached_binary_path = Some(aztec_path.clone());
+            return Some(aztec_path);
         }
+        eprintln!("[zed-aztec] find_aztec: HOME not set, cannot determine ~/.aztec/bin path");
         None
     }
 
     /// Try to find nargo in PATH or ~/.aztec/bin.
     fn find_nargo(&mut self, worktree: &zed::Worktree, home: Option<&String>) -> Option<String> {
         // Check PATH first
+        eprintln!("[zed-aztec] find_nargo: checking PATH via worktree.which()");
         if let Some(path) = worktree.which("nargo") {
+            eprintln!("[zed-aztec] find_nargo: found in PATH at {}", path);
             return Some(path);
         }
-        // Check ~/.aztec/bin/nargo
+        eprintln!("[zed-aztec] find_nargo: not in PATH");
+        // Return ~/.aztec/bin/nargo path if HOME is set
+        // Note: WASM extensions can't use fs::metadata, so we return the path
+        // and let Zed handle errors if the binary doesn't exist
         if let Some(home) = home {
             let nargo_path = format!("{}/.aztec/bin/nargo", home);
-            if fs::metadata(&nargo_path).is_ok_and(|stat| stat.is_file()) {
-                self.cached_binary_path = Some(nargo_path.clone());
-                return Some(nargo_path);
-            }
+            eprintln!("[zed-aztec] find_nargo: returning default path {}", nargo_path);
+            self.cached_binary_path = Some(nargo_path.clone());
+            return Some(nargo_path);
         }
+        eprintln!("[zed-aztec] find_nargo: HOME not set, cannot determine ~/.aztec/bin path");
         None
     }
 
@@ -101,12 +138,6 @@ impl AztecExtension {
         language_server_id: &LanguageServerId,
         worktree: &zed::Worktree,
     ) -> Result<LspBinary> {
-        // Show status while searching for LSP binary
-        zed::set_language_server_installation_status(
-            language_server_id,
-            &LanguageServerInstallationStatus::CheckingForUpdate,
-        );
-
         let shell_env = worktree.shell_env();
 
         // 0. Check user settings first (highest priority)
@@ -115,6 +146,7 @@ impl AztecExtension {
         if let Ok(settings) = LspSettings::for_worktree(language_server_id.as_ref(), worktree) {
             if let Some(binary) = settings.binary {
                 if let Some(path) = binary.path {
+                    eprintln!("[zed-aztec] using custom binary from settings: {}", path);
                     let args = binary.arguments.unwrap_or_else(|| vec!["lsp".to_string()]);
                     let env: Vec<(String, String)> = binary
                         .env
@@ -133,46 +165,61 @@ impl AztecExtension {
             }
         }
 
-        let home =
-            get_env_var(&shell_env, "HOME").or_else(|| get_env_var(&shell_env, "USERPROFILE"));
+        // Get HOME from shell_env, or fall back to std::env (Zed may not pass HOME when launched from desktop)
+        let home = get_env_var(&shell_env, "HOME")
+            .or_else(|| get_env_var(&shell_env, "USERPROFILE"))
+            .or_else(|| std::env::var("HOME").ok())
+            .or_else(|| std::env::var("USERPROFILE").ok());
+        eprintln!("[zed-aztec] HOME resolved to: {:?}", home);
 
         // 1. Detect project type and choose appropriate binary
         // - Aztec projects need `aztec lsp` (Docker-based with macro support)
         // - Pure Noir projects prefer `nargo lsp` (faster, native)
         let is_aztec = is_aztec_project(worktree);
+        eprintln!("[zed-aztec] is_aztec_project: {}", is_aztec);
 
         if is_aztec {
             // Aztec project: prefer aztec CLI, fall back to nargo
+            eprintln!("[zed-aztec] searching for aztec binary...");
             if let Some(path) = self.find_aztec(worktree, home.as_ref()) {
+                eprintln!("[zed-aztec] found aztec at: {}", path);
                 zed::set_language_server_installation_status(
                     language_server_id,
                     &LanguageServerInstallationStatus::None,
                 );
-                return Ok(Self::aztec_binary(path, shell_env));
+                return Ok(Self::aztec_binary(path, shell_env, home.as_ref()));
             }
+            eprintln!("[zed-aztec] aztec not found, searching for nargo...");
             if let Some(path) = self.find_nargo(worktree, home.as_ref()) {
+                eprintln!("[zed-aztec] found nargo at: {}", path);
                 zed::set_language_server_installation_status(
                     language_server_id,
                     &LanguageServerInstallationStatus::None,
                 );
                 return Ok(Self::nargo_binary(path, shell_env));
             }
+            eprintln!("[zed-aztec] nargo not found either");
         } else {
             // Pure Noir project: prefer nargo (faster), fall back to aztec
+            eprintln!("[zed-aztec] searching for nargo binary...");
             if let Some(path) = self.find_nargo(worktree, home.as_ref()) {
+                eprintln!("[zed-aztec] found nargo at: {}", path);
                 zed::set_language_server_installation_status(
                     language_server_id,
                     &LanguageServerInstallationStatus::None,
                 );
                 return Ok(Self::nargo_binary(path, shell_env));
             }
+            eprintln!("[zed-aztec] nargo not found, searching for aztec...");
             if let Some(path) = self.find_aztec(worktree, home.as_ref()) {
+                eprintln!("[zed-aztec] found aztec at: {}", path);
                 zed::set_language_server_installation_status(
                     language_server_id,
                     &LanguageServerInstallationStatus::None,
                 );
-                return Ok(Self::aztec_binary(path, shell_env));
+                return Ok(Self::aztec_binary(path, shell_env, home.as_ref()));
             }
+            eprintln!("[zed-aztec] aztec not found either");
         }
 
         // 2. Error with installation instructions
@@ -218,7 +265,12 @@ impl zed::Extension for AztecExtension {
         language_server_id: &LanguageServerId,
         worktree: &zed::Worktree,
     ) -> Result<zed::Command> {
+        eprintln!("[zed-aztec] language_server_command called for {:?}", language_server_id.as_ref());
         let binary = self.language_server_binary(language_server_id, worktree)?;
+        eprintln!("[zed-aztec] binary path: {}, args: {:?}", binary.path, binary.args);
+        if let Some(ref env) = binary.environment {
+            eprintln!("[zed-aztec] env vars: {:?}", env.iter().map(|(k, _)| k.as_str()).collect::<Vec<_>>());
+        }
         Ok(zed::Command {
             command: binary.path,
             args: binary.args,
