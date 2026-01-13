@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-01-14
+
 ### Fixed
 - Fix LSP connection reset by removing debug code that broke stdio communication
 - Fix LSP restart failure by auto-removing stale Docker container before startup
@@ -68,7 +70,8 @@ Initial release of Aztec extension for Zed editor.
 - Format on save not supported (`nargo fmt` only supports in-place file formatting)
 - Requires Docker for `aztec lsp` (runs nargo in container with Aztec macro support)
 
-[Unreleased]: https://github.com/ametel01/zed-aztec/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/ametel01/zed-aztec/compare/v0.2.1...HEAD
+[0.2.1]: https://github.com/ametel01/zed-aztec/compare/v0.2.0...v0.2.1
 [0.2.0]: https://github.com/ametel01/zed-aztec/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/ametel01/zed-aztec/compare/v0.0.1...v0.1.0
 [0.0.1]: https://github.com/ametel01/zed-aztec/releases/tag/v0.0.1

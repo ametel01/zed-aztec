@@ -1,7 +1,7 @@
 id = "aztec"
 name = "Aztec"
 description = "Aztec-nr smart contract support for Zed."
-version = "0.2.0"
+version = "0.2.1"
 schema_version = 1
 authors = ["Alex Metelli <alex@metelli.dev>"]
 repository = "https://github.com/ametel01/zed-aztec"
