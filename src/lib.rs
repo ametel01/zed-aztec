@@ -73,9 +73,15 @@ impl AztecExtension {
     fn aztec_binary(path: String, env: Vec<(String, String)>, home: Option<&String>) -> LspBinary {
         let env = Self::ensure_path(env);
         let env = Self::ensure_home(env, home);
+        // Wrap in shell to clean up stale Docker container before starting LSP.
+        // The container name "aztec-nargo-lsp" is hardcoded in aztec CLI.
+        // Using `exec` ensures the shell is replaced by aztec, preserving stdio.
         LspBinary {
-            path,
-            args: vec!["lsp".to_string()],
+            path: "/bin/sh".to_string(),
+            args: vec![
+                "-c".to_string(),
+                format!("docker rm -f aztec-nargo-lsp 2>/dev/null; exec '{}' lsp", path),
+            ],
             environment: Some(env),
         }
     }

@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - Fix LSP connection reset by removing debug code that broke stdio communication
+- Fix LSP restart failure by auto-removing stale Docker container before startup
 - Fix Aztec CLI detection when Zed is launched from desktop launcher instead of terminal
 - Fix docker not found when running `aztec lsp` by ensuring PATH includes /usr/bin
 - Fix LSP crash when HOME environment variable is not passed by Zed
